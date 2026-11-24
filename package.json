@@ -1,0 +1,11 @@
+{
+  "name": "my-life",
+  "private": true,
+  "version": "0.1.0",
+  "description": "MY LIFE - 個人専用の生活設計PWA（端末内保存・サーバー不要）",
+  "type": "module",
+  "scripts": {
+    "start": "node tools/serve.js",
+    "test": "node tools/test.js"
+  }
+}
