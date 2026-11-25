@@ -309,7 +309,7 @@ button.m-cell { cursor: pointer; }
 .log { list-style: none; margin: 0 0 8px; padding: 0; }
 .log-row { width: 100%; display: flex; gap: 12px; align-items: center; background: none; border: 0; border-top: 1px solid var(--line); padding: 10px 0; font: inherit; color: var(--ink); text-align: left; cursor: pointer; min-height: 44px; }
 .log li:first-child .log-row { border-top: 0; }
-.log-row time { font-variant-numeric: tabular-nums; color: var(--ink-2); width: 3.2em; flex: none; }
+.log-row time { font-variant-numeric: tabular-nums; color: var(--ink-2); min-width: 7em; flex: none; white-space: nowrap; }
 .log-row span:nth-child(2) { flex: 1; }
 .set-row { display: grid; grid-template-columns: 1fr 80px 70px; gap: 6px; margin-bottom: 6px; }
 .set-row input { margin: 0; }

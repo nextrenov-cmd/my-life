@@ -1,5 +1,5 @@
 // オフライン対応：アプリ本体を端末にキャッシュする（記録データは IndexedDB に保存）
-const VERSION = 'mylife-v4';
+const VERSION = 'mylife-v5';
 const FILES = [
   './',
   './index.html',
