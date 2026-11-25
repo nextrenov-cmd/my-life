@@ -1,5 +1,5 @@
 // オフライン対応：アプリ本体を端末にキャッシュする（記録データは IndexedDB に保存）
-const VERSION = 'mylife-v3';
+const VERSION = 'mylife-v4';
 const FILES = [
   './',
   './index.html',
@@ -27,7 +27,8 @@ const FILES = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));
+  // ブラウザのHTTPキャッシュを使わず、必ず最新のファイルを取得する
+  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(FILES.map((f) => new Request(f, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {

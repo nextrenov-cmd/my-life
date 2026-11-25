@@ -1,9 +1,32 @@
 // やること（ToDo）：自由に登録・保存。終わっていないものは翌日に持ち越す（責めない表示）
-import { state, actions, rerender, toast, openSheet, closeSheet, today } from '../core.js';
+import { state, actions, rerender, toast, openSheet, closeSheet, today, logEvent, removeEvent } from '../core.js';
 import { kvSet } from '../db.js';
 import { esc, uid, fmtDate, addDaysYmd } from '../util.js';
 
 const save = () => kvSet('todos', state.todos);
+
+// 完了したやることは「今日の記録」にも残す
+export async function completeTodo(x, ts = Date.now()) {
+  const e = await logEvent('todo_done', { todoId: x.id, text: x.text }, ts);
+  x.done = true;
+  x.doneDate = e.date;
+  await save();
+}
+export async function undoTodo(x) {
+  for (const e of state.events.filter((ev) => ev.type === 'todo_done' && ev.data?.todoId === x.id)) await removeEvent(e.id);
+  x.done = false;
+  x.doneDate = null;
+  await save();
+}
+// 記録側から削除されたとき、やることを未完了に戻す
+export async function onTodoEventDeleted(e) {
+  const x = state.todos.find((y) => y.id === e.data?.todoId);
+  if (x && !state.events.some((ev) => ev.type === 'todo_done' && ev.data?.todoId === x.id)) {
+    x.done = false;
+    x.doneDate = null;
+    await save();
+  }
+}
 const byTime = (a, b) => (a.time || '99') .localeCompare(b.time || '99') || a.createdAt - b.createdAt;
 
 export function todoSection() {
@@ -56,10 +79,11 @@ Object.assign(actions, {
   },
   async toggleTodo(el) {
     const x = state.todos.find((y) => y.id === el.dataset.id);
-    x.done = !x.done;
-    x.doneDate = x.done ? today() : null;
-    await save();
-    if (x.done) toast('おつかれさまでした');
+    if (x.done) await undoTodo(x);
+    else {
+      await completeTodo(x);
+      toast('おつかれさまでした。今日の記録に追加しました');
+    }
     rerender();
   },
   editTodo(el) {
@@ -80,6 +104,7 @@ Object.assign(actions, {
     rerender();
   },
   async delTodo(el) {
+    // やること自体を消しても、完了の記録は残す
     state.todos = state.todos.filter((y) => y.id !== el.dataset.id);
     await save();
     closeSheet();

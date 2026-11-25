@@ -5,7 +5,7 @@ import { ROUTINE_KB } from '../knowledge.js';
 import { activeRoutines, MARKER_CATS } from '../planner.js';
 import { dailyAdvice, routineDoneOn, weeklyProposals } from '../analysis.js';
 import { ymd, mondayOf } from '../util.js';
-import { todoSection } from './todo.js';
+import { todoSection, completeTodo, onTodoEventDeleted } from './todo.js';
 
 const customItems = () => state.settings.customRecords || [];
 
@@ -31,6 +31,8 @@ function eventLabel(e) {
       return '今日の感想';
     case 'custom':
       return e.data?.label || '記録';
+    case 'todo_done':
+      return `✓ やること：${e.data?.text || ''}`;
     default:
       return e.type;
   }
@@ -282,7 +284,9 @@ Object.assign(actions, {
     rerender();
   },
   async delEvent(el) {
+    const ev = state.events.find((x) => x.id === el.dataset.id);
     await removeEvent(el.dataset.id);
+    if (ev?.type === 'todo_done') await onTodoEventDeleted(ev);
     closeSheet();
     toast('削除しました');
     rerender();
@@ -291,10 +295,12 @@ Object.assign(actions, {
     const t = today();
     const rs = activeRoutines(state.plan).filter((r) => !MARKER_CATS.has(r.cat) && r.cat !== 'strength');
     const items = customItems();
-    const opt = (v, l) => `<option value="${esc(v)}" ${keep.type === v ? 'selected' : ''}>${esc(l)}</option>`;
+    const openTodos = (state.todos || []).filter((x) => !x.done);
+    const opt =(v, l) => `<option value="${esc(v)}" ${keep.type === v ? 'selected' : ''}>${esc(l)}</option>`;
     openSheet('記録し忘れを追加', `
       <label>記録<select id="pType">
         <optgroup label="基本">${opt('wake', '起きた')}${opt('sleep', '寝る')}${opt('meal', '食べた')}${opt('workout_start', '筋トレ開始')}${opt('workout_end', '筋トレ終了')}</optgroup>
+        ${openTodos.length ? `<optgroup label="やること（完了として記録）">${openTodos.map((x) => opt('t:' + x.id, x.text)).join('')}</optgroup>` : ''}
         ${rs.length ? `<optgroup label="ルーティン">${rs.map((r) => opt('r:' + r.id, r.text)).join('')}</optgroup>` : ''}
         ${items.length ? `<optgroup label="自分で追加した項目">${items.map((c) => opt('c:' + c.id, c.label)).join('')}</optgroup>` : ''}
         <option value="__new" ${keep.type === '__new' ? 'selected' : ''}>＋ 新しい項目を追加…</option>
@@ -320,6 +326,12 @@ Object.assign(actions, {
     const ts = tsFor(date, time);
     let data = {};
     let msg = '';
+    if (type.startsWith('t:')) {
+      await completeTodo(state.todos.find((x) => x.id === type.slice(2)), ts);
+      closeSheet();
+      toast(`やることを完了として${dayKey(ts) === today() ? '今日' : '過去'}の記録に保存しました`);
+      return rerender();
+    }
     if (type === '__new') {
       const label = document.getElementById('pNew').value.trim();
       if (!label) return toast('新しい項目の名前を入力してください');

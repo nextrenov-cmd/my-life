@@ -138,5 +138,19 @@ async function boot() {
   document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && rerender());
 }
 
-if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js').catch(() => {});
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  // 新しい版が公開されたら、自動で切り替えて再読み込みする（入力途中のシートがある間は待つ）
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloading) return;
+    reloading = true;
+    const reload = () => (document.getElementById('sheet').classList.contains('open') ? setTimeout(reload, 2000) : location.reload());
+    reload();
+  });
+  navigator.serviceWorker
+    .register('./sw.js')
+    .then((reg) => document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && reg.update().catch(() => {})))
+    .catch(() => {});
+}
 boot();
