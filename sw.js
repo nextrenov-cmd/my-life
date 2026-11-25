@@ -1,5 +1,5 @@
 // オフライン対応：アプリ本体を端末にキャッシュする（記録データは IndexedDB に保存）
-const VERSION = 'mylife-v1';
+const VERSION = 'mylife-v2';
 const FILES = [
   './',
   './index.html',
@@ -20,6 +20,7 @@ const FILES = [
   './js/views/future.js',
   './js/views/review.js',
   './js/views/more.js',
+  './js/views/todo.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-maskable-512.png',

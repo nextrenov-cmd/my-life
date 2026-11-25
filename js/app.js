@@ -114,8 +114,8 @@ document.addEventListener('input', (ev) => {
 
 async function boot() {
   try {
-    const [plan, draft, settings, proposals, events, checkups] = await Promise.all([kvGet('plan'), kvGet('draft'), kvGet('settings'), kvGet('proposals'), allEvents(), allCheckups()]);
-    Object.assign(state, { plan: plan || null, draft: draft || null, settings: settings || {}, proposals: proposals || {}, events: events || [], checkups: checkups || [] });
+    const [plan, draft, settings, proposals, events, checkups, todos] = await Promise.all([kvGet('plan'), kvGet('draft'), kvGet('settings'), kvGet('proposals'), allEvents(), allCheckups(), kvGet('todos')]);
+    Object.assign(state, { plan: plan || null, draft: draft || null, settings: settings || {}, proposals: proposals || {}, events: events || [], checkups: checkups || [], todos: todos || [] });
     reindex();
   } catch (e) {
     document.getElementById('app').innerHTML = `<div class="card"><h3>データを読み込めませんでした</h3><p class="small">${esc(e.message)}</p><p class="small">プライベートモードでは端末内保存が使えない場合があります。</p></div>`;

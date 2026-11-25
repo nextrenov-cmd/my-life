@@ -10,6 +10,7 @@ export const state = {
   proposals: {}, // 週ごとの提案と承認状況
   events: [],
   checkups: [],
+  todos: [], // やること
   ix: indexEvents([]),
   ui: {},
 };

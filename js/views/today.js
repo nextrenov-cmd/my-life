@@ -5,6 +5,7 @@ import { ROUTINE_KB } from '../knowledge.js';
 import { activeRoutines, MARKER_CATS } from '../planner.js';
 import { dailyAdvice, routineDoneOn, weeklyProposals } from '../analysis.js';
 import { ymd, mondayOf } from '../util.js';
+import { todoSection } from './todo.js';
 
 const MEAL_LABEL = { breakfast: '朝食', lunch: '昼食', dinner: '夕食', snack: '間食' };
 
@@ -92,6 +93,7 @@ export function renderToday() {
     ${tap('tapReflect', '今日の感想', refl ? '記録済み・編集' : '', !!refl)}
     ${tap('tapSleep', '寝る', sleep ? `${tsToHHMM(sleep.ts)} 記録済み` : '', !!sleep, 'wide')}
   </section>
+  ${todoSection()}
   ${rs.length ? `<section class="card"><h3>今日のルーティン</h3><ul class="checks">${rs.map((r) => {
     const done = routineDoneOn(ix, r, t);
     const kb = ROUTINE_KB[r.cat] || ROUTINE_KB.custom;
