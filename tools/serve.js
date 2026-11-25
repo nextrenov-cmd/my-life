@@ -25,4 +25,9 @@ http
       res.writeHead(404).end('not found');
     }
   })
-  .listen(port, () => console.log(`MY LIFE: http://localhost:${port}`));
+  .on('error', (e) => {
+    // すでに起動している場合は何もしない
+    if (e.code === 'EADDRINUSE') process.exit(0);
+    throw e;
+  })
+  .listen(port, '127.0.0.1', () => console.log(`MY LIFE: http://localhost:${port}`));
