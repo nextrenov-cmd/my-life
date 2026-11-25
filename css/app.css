@@ -62,6 +62,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
@@ -300,6 +301,8 @@ button.m-cell { cursor: pointer; }
 .todo-text { flex: 1; text-align: left; font: inherit; color: var(--ink); background: none; border: 0; padding: 10px 0; min-height: 56px; cursor: pointer; }
 .done-text { text-decoration: line-through; color: var(--muted); }
 .todo-done summary { cursor: pointer; margin: 6px 0; }
+.custom-items { list-style: none; padding: 0; margin: 0; }
+.custom-items li { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); padding-left: 4px; }
 .later { list-style: none; padding: 0; margin: 0; }
 .later time { width: 5.5em !important; }
 .more-link { text-decoration: none; font-size: 1.4rem; color: var(--muted); padding: 8px 4px 8px 12px; }

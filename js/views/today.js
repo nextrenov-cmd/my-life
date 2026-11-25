@@ -1,13 +1,15 @@
 // 今日の画面：ワンタップ記録＋今日のひとこと（1つだけ）
 import { state, actions, rerender, logEvent, updateEvent, removeEvent, toast, openSheet, closeSheet, today, saveSettings } from '../core.js';
-import { esc, DOW, parseYmd, tsToHHMM, fmtDur, dayKey, addDaysYmd, DAY_BOUNDARY_H, dowOf } from '../util.js';
+import { esc, DOW, parseYmd, tsToHHMM, fmtDur, dayKey, addDaysYmd, DAY_BOUNDARY_H, dowOf, uid, fmtDate } from '../util.js';
 import { ROUTINE_KB } from '../knowledge.js';
 import { activeRoutines, MARKER_CATS } from '../planner.js';
 import { dailyAdvice, routineDoneOn, weeklyProposals } from '../analysis.js';
 import { ymd, mondayOf } from '../util.js';
 import { todoSection } from './todo.js';
 
-const MEAL_LABEL = { breakfast: '朝食', lunch: '昼食', dinner: '夕食', snack: '間食' };
+const customItems = () => state.settings.customRecords || [];
+
+const MEAL_LABEL ={ breakfast: '朝食', lunch: '昼食', dinner: '夕食', snack: '間食' };
 
 function eventLabel(e) {
   switch (e.type) {
@@ -27,6 +29,8 @@ function eventLabel(e) {
     }
     case 'reflection':
       return '今日の感想';
+    case 'custom':
+      return e.data?.label || '記録';
     default:
       return e.type;
   }
@@ -101,8 +105,9 @@ export function renderToday() {
   }).join('')}</ul></section>` : ''}
   <section class="card">
     <h3>今日の記録</h3>
+    ${customItems().length ? `<div class="chips">${customItems().map((c) => `<button class="chip add" data-action="logCustom" data-id="${c.id}">＋ ${esc(c.label)}</button>`).join('')}</div>` : ''}
     ${list.length ? `<ul class="log">${list.map((e) => `<li><button class="log-row" data-action="editEvent" data-id="${e.id}"><time>${tsToHHMM(e.ts)}</time><span>${esc(eventLabel(e))}</span><span class="muted small">修正</span></button></li>`).join('')}</ul>` : '<p class="muted small">まだ記録はありません。上のボタンをタップするだけで記録できます。</p>'}
-    <button class="btn ghost small" data-action="addPast">記録し忘れを追加</button>
+    <div class="row gap"><button class="btn ghost small" data-action="addPast">記録し忘れを追加</button><button class="btn ghost small" data-action="showPast">過去の記録</button></div>
   </section>`;
 }
 
@@ -282,26 +287,91 @@ Object.assign(actions, {
     toast('削除しました');
     rerender();
   },
-  addPast() {
+  addPast(el, ev, keep = {}) {
     const t = today();
+    const rs = activeRoutines(state.plan).filter((r) => !MARKER_CATS.has(r.cat) && r.cat !== 'strength');
+    const items = customItems();
+    const opt = (v, l) => `<option value="${esc(v)}" ${keep.type === v ? 'selected' : ''}>${esc(l)}</option>`;
     openSheet('記録し忘れを追加', `
-      <label>記録<select id="pType"><option value="wake">起きた</option><option value="sleep">寝る</option><option value="meal">食べた</option><option value="workout_start">筋トレ開始</option><option value="workout_end">筋トレ終了</option></select></label>
+      <label>記録<select id="pType">
+        <optgroup label="基本">${opt('wake', '起きた')}${opt('sleep', '寝る')}${opt('meal', '食べた')}${opt('workout_start', '筋トレ開始')}${opt('workout_end', '筋トレ終了')}</optgroup>
+        ${rs.length ? `<optgroup label="ルーティン">${rs.map((r) => opt('r:' + r.id, r.text)).join('')}</optgroup>` : ''}
+        ${items.length ? `<optgroup label="自分で追加した項目">${items.map((c) => opt('c:' + c.id, c.label)).join('')}</optgroup>` : ''}
+        <option value="__new" ${keep.type === '__new' ? 'selected' : ''}>＋ 新しい項目を追加…</option>
+      </select></label>
+      <label id="pNewWrap" ${keep.type === '__new' ? '' : 'hidden'}>新しい項目の名前<input id="pNew" placeholder="例：ストレッチ、薬を飲んだ、水を1L飲んだ" autocomplete="off"></label>
       <label>日付<select id="pDate"><option value="${t}">今日</option><option value="${addDaysYmd(t, -1)}">昨日</option><option value="${addDaysYmd(t, -2)}">一昨日</option></select></label>
       <label>時刻<input type="time" id="pTime" value="${tsToHHMM(Date.now())}"></label>
       <p class="muted small">深夜0時〜${DAY_BOUNDARY_H}時の「寝る」は前日の夜として扱います。</p>
-      <button class="btn primary" data-action="savePast">追加</button>`);
+      <button class="btn primary" data-action="savePast">追加</button>
+      ${items.length ? `<h4>自分で追加した項目</h4><p class="muted small">「今日」画面の「今日の記録」からワンタップでも記録できます。×で項目を削除します（これまでの記録は残ります）。</p>
+        <ul class="custom-items">${items.map((c) => `<li><span>${esc(c.label)}</span><button class="icon-btn" data-action="delCustomItem" data-id="${c.id}" aria-label="${esc(c.label)}を削除">×</button></li>`).join('')}</ul>` : ''}`);
+    document.getElementById('pType').addEventListener('change', (e) => {
+      const wrap = document.getElementById('pNewWrap');
+      wrap.hidden = e.target.value !== '__new';
+      if (!wrap.hidden) document.getElementById('pNew').focus();
+    });
   },
   async savePast() {
-    const type = document.getElementById('pType').value;
+    let type = document.getElementById('pType').value;
     const date = document.getElementById('pDate').value;
     const time = document.getElementById('pTime').value;
     if (!time) return toast('時刻を入力してください');
     const ts = tsFor(date, time);
-    const data = type === 'meal' ? { slot: +time.split(':')[0] < 11 ? 'breakfast' : +time.split(':')[0] < 16 ? 'lunch' : 'dinner' } : {};
+    let data = {};
+    let msg = '';
+    if (type === '__new') {
+      const label = document.getElementById('pNew').value.trim();
+      if (!label) return toast('新しい項目の名前を入力してください');
+      let item = customItems().find((c) => c.label === label);
+      if (!item) {
+        item = { id: uid(), label };
+        state.settings.customRecords = [...customItems(), item];
+        await saveSettings(); // 項目は自動で保存
+        msg = `「${label}」を項目に追加し、`;
+      }
+      type = 'custom';
+      data = { itemId: item.id, label: item.label };
+    } else if (type.startsWith('c:')) {
+      const item = customItems().find((c) => c.id === type.slice(2));
+      type = 'custom';
+      data = { itemId: item.id, label: item.label };
+    } else if (type.startsWith('r:')) {
+      const r = state.plan.routines.find((x) => x.id === type.slice(2));
+      if ((state.ix.byDate.get(dayKey(ts)) || []).some((e) => e.type === 'routine_done' && e.data?.routineId === r.id)) return toast('その日はすでに記録済みです');
+      type = 'routine_done';
+      data = { routineId: r.id, minutes: r.duration || null };
+    } else if (type === 'meal') data = { slot: +time.split(':')[0] < 11 ? 'breakfast' : +time.split(':')[0] < 16 ? 'lunch' : 'dinner' };
     await logEvent(type, data, ts);
     closeSheet();
-    toast(`${dayKey(ts) === today() ? '今日' : '過去'}の記録を追加しました`);
+    toast(`${msg}${dayKey(ts) === today() ? '今日' : '過去'}の記録を保存しました`);
     rerender();
+  },
+  async delCustomItem(el) {
+    const item = customItems().find((c) => c.id === el.dataset.id);
+    if (!item || !confirm(`項目「${item.label}」を削除しますか？\n（これまでの記録は残ります）`)) return;
+    state.settings.customRecords = customItems().filter((c) => c.id !== item.id);
+    await saveSettings();
+    toast('項目を削除しました');
+    rerender();
+    actions.addPast();
+  },
+  async logCustom(el) {
+    const item = customItems().find((c) => c.id === el.dataset.id);
+    await logEvent('custom', { itemId: item.id, label: item.label });
+    toast(`「${item.label}」を記録しました`);
+    rerender();
+  },
+  showPast() {
+    const t = today();
+    const days = [1, 2, 3, 4, 5, 6, 7].map((n) => addDaysYmd(t, -n));
+    const html = days
+      .map((d) => {
+        const list = state.ix.byDate.get(d) || [];
+        return list.length ? `<h4>${fmtDate(d)}</h4><ul class="log">${list.map((e) => `<li><button class="log-row" data-action="editEvent" data-id="${e.id}"><time>${tsToHHMM(e.ts)}</time><span>${esc(eventLabel(e))}</span><span class="muted small">修正・削除</span></button></li>`).join('')}</ul>` : '';
+      })
+      .join('');
+    openSheet('過去の記録（7日間）', html || '<p class="muted">過去7日間の記録はありません。</p>');
   },
   async ackCheckup() {
     const latest = [...state.checkups].sort((a, b) => (a.date < b.date ? 1 : -1))[0];
